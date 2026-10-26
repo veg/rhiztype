@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RhizType | HIV-1 Group M Subtyping & Recombination Classifier (WASM)</title>
+  <meta name="description" content="Client-side WebAssembly HIV-1 Group M subtyping and mosaic deconvolution engine for aligned and unaligned FASTA sequences.">
+  <style>
+    :root {
+      --canvas: #f2f1ed;
+      --surface: #ffffff;
+      --surface-subtle: #faf9f6;
+      --surface-recessed: #eae8e1;
+      --surface-hover: #e5e3dc;
+      
+      --border-hairline: #e0ded8;
+      --border-normal: #d0cecd;
+      --border-strong: #9c9a94;
+      
+      --text-primary: #121212;
+      --text-secondary: #585651;
+      --text-tertiary: #8a8882;
+      
+      --braun-orange: #ff4f00;
+      --braun-orange-hover: #eb4800;
+      --braun-orange-tint: rgba(255, 79, 0, 0.08);
+      
+      --braun-dark: #222220;
+      --braun-dark-hover: #333330;
+      
+      --status-green: #15803d;
+      --status-green-bg: #ecfdf5;
+      --status-green-border: #a7f3d0;
+      
+      --status-blue: #0369a1;
+      --status-blue-bg: #f0f9ff;
+      --status-blue-border: #bae6fd;
+
+      --status-orange: #c2410c;
+      --status-orange-bg: #fff7ed;
+      --status-orange-border: #fed7aa;
+      
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--canvas);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 28px 24px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1460px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding-bottom: 18px;
+      margin-bottom: 22px;
+      border-bottom: 2px solid var(--border-normal);
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .brand-title {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-badge {
+      background: var(--braun-orange);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 3px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+    }
+
+    .tab-btn {
+      background: var(--surface-recessed);
+      border: 1px solid var(--border-normal);
+      padding: 8px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 4px;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+
+    .tab-btn.active {
+      background: var(--braun-dark);
+      color: white;
+      border-color: var(--braun-dark);
+    }
+
+    .grid-layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 1024px) {
+      .grid-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border-normal);
+      border-radius: 6px;
+      padding: 18px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+
+    .panel-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .dropzone {
+      border: 1.5px dashed var(--border-strong);
+      background: var(--surface-subtle);
+      border-radius: 5px;
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 12px;
+      transition: all 0.15s;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--braun-orange);
+      background: var(--braun-orange-tint);
+    }
+
+    textarea {
+      width: 100%;
+      height: 190px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      padding: 10px;
+      border: 1px solid var(--border-normal);
+      border-radius: 4px;
+      background: var(--surface-subtle);
+      color: var(--text-primary);
+      resize: vertical;
+      margin-bottom: 12px;
+    }
+
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .preset-btn {
+      background: var(--surface-recessed);
+      border: 1px solid var(--border-normal);
+      padding: 4px 9px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 3px;
+      cursor: pointer;
+      color: var(--text-primary);
+    }
+
+    .preset-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-strong);
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .control-item label {
+      display: block;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 3px;
+      font-weight: 600;
+    }
+
+    .control-item input[type="number"], .control-item select {
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      border: 1px solid var(--border-normal);
+      border-radius: 4px;
+      background: var(--surface-subtle);
+    }
+
+    .checkbox-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .checkbox-row label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+    }
+
+    .run-btn {
+      width: 100%;
+      background: var(--braun-orange);
+      color: white;
+      border: none;
+      padding: 11px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 4px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: background 0.15s;
+    }
+
+    .run-btn:hover {
+      background: var(--braun-orange-hover);
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .stat-card {
+      background: var(--surface-subtle);
+      border: 1px solid var(--border-hairline);
+      border-left: 3px solid var(--braun-dark);
+      padding: 10px 14px;
+      border-radius: 4px;
+    }
+
+    .stat-card.accent {
+      border-left-color: var(--braun-orange);
+    }
+
+    .stat-label {
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+      font-weight: 700;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      margin-top: 2px;
+    }
+
+    .legend-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border-hairline);
+      border-radius: 4px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      border: 1px solid rgba(0,0,0,0.2);
+    }
+
+    .seq-card {
+      border: 1px solid var(--border-normal);
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 14px;
+      background: var(--surface);
+    }
+
+    .seq-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .seq-title {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+
+    .pill-clonal {
+      background: var(--status-green-bg);
+      color: var(--status-green);
+      border: 1px solid var(--status-green-border);
+    }
+
+    .pill-mosaic {
+      background: var(--status-orange-bg);
+      color: var(--status-orange);
+      border: 1px solid var(--status-orange-border);
+    }
+
+    .pill-scope {
+      background: var(--status-blue-bg);
+      color: var(--status-blue);
+      border: 1px solid var(--status-blue-border);
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 8px 16px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      background: var(--surface-subtle);
+      padding: 10px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border-hairline);
+    }
+
+    .meta-key {
+      color: var(--text-tertiary);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .meta-val {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+
+    .svg-container {
+      width: 100%;
+      overflow-x: auto;
+      margin: 10px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    th {
+      background: var(--surface-recessed);
+      text-align: left;
+      padding: 7px 10px;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-normal);
+    }
+
+    td {
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border-hairline);
+      font-family: var(--font-mono);
+    }
+
+    .export-bar {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-secondary {
+      background: var(--surface-recessed);
+      border: 1px solid var(--border-normal);
+      padding: 5px 11px;
+      font-size: 11.5px;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+      background: var(--surface-hover);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .search-input {
+      width: 360px;
+      padding: 7px 12px;
+      border: 1px solid var(--border-normal);
+      border-radius: 4px;
+      font-size: 12.5px;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <div class="brand-title">
+          RhizType <span class="brand-badge">Rust + WASM v0.1</span>
+        </div>
+        <div class="subtitle">
+          HXB2-Anchored HIV-1 Group M Subtyping, Mosaic Deconvolution &amp; Breakpoint Verification (Aligned or Unaligned FASTA)
+        </div>
+      </div>
+      <div class="nav-tabs">
+        <button class="tab-btn active" id="tabBtnScreen" onclick="switchTab('screen')">Sequence Screener</button>
+        <button class="tab-btn" id="tabBtnAtlas" onclick="switchTab('atlas')">Reference Compendium (200 Lineages)</button>
+        <a href="https://github.com/veg/rhiztype" target="_blank" class="tab-btn" style="text-decoration:none;">GitHub Repo ↗</a>
+      </div>
+    </header>
+
+    <!-- TAB 1: SEQUENCE SCREENER -->
+    <div id="viewScreen" class="grid-layout">
+      <div class="panel">
+        <div class="panel-title">
+          <span>1. Input HIV-1 FASTA</span>
+          <span id="wasmStatus" style="color:var(--status-green);font-family:var(--font-mono);font-size:11px;">Loading WASM...</span>
+        </div>
+
+        <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+          <strong>Drop FASTA file here</strong> or click to browse<br>
+          <span style="font-size:11px;color:var(--text-tertiary);">Accepts aligned or unaligned full-length, partial <em>pol</em>, or partial <em>env</em></span>
+          <input type="file" id="fileInput" accept=".fa,.fasta,.fna,.txt" style="display:none" onchange="handleFileSelect(event)">
+        </div>
+
+        <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:5px;text-transform:uppercase;">
+          Load Sample Presets (Unaligned &amp; Aligned):
+        </div>
+        <div class="preset-row">
+          <button class="preset-btn" onclick="loadPreset('demos')">5 Demo Isolates (Unaligned)</button>
+          <button class="preset-btn" onclick="loadPreset('crf01_02')">CRF01_AE &amp; CRF02_AG</button>
+          <button class="preset-btn" onclick="loadPreset('subtype_g')">Nominal Subtype G vs G0</button>
+          <button class="preset-btn" onclick="loadPreset('partial_env')">East African Partial env</button>
+        </div>
+
+        <textarea id="fastaInput" spellcheck="false" placeholder=">Sequence_1&#10;ATGGGTGCGAGAGCGTCAGTATTAAGCGGGGGAGAATTAGATCGATGGGAAAAAATTCGGTTAAGGCCAGGGGGAAAGAAAAAATATAAATTAAAACATATAGTATGGGCAAGCAGGGAGCTAGAACGATTCGCAGTTAATCCTGGCCTGTTAGAAACATCAGAAGGCTGTAGACAAATACTGGGACAGCTACAACCATCCCTTCAGACAGGATCAGAAGAACTTAGATCATTATATAATACAGTAGCAACCCTCTATTGTGTGCATCAAAGGATAGAGATAAAAGACACCAAGGAAGCTTTAGACAAGATAGAGGAAGAGCAAAACAAAAGTAAGAAAAAAGCACAGCAAGCAGCAGCTGACACAGGACACAGCAATCAGGTCAGCCAAAATTACCCTATAGTGCAGAACATCCAGGGGCAAATGGTACATCAGGCCATATCACCTAGAACTT..."></textarea>
+
+        <div class="panel-title" style="margin-top:4px;">
+          <span>2. Deconvolution Parameters</span>
+        </div>
+
+        <div class="controls-grid">
+          <div class="control-item">
+            <label>Switch Penalty γ (0=Auto)</label>
+            <input type="number" id="paramGamma" value="0" min="0" max="40" step="0.5">
+          </div>
+          <div class="control-item">
+            <label>Min Segment Span nt (0=Auto)</label>
+            <input type="number" id="paramMinSpan" value="0" min="0" max="1000" step="10">
+          </div>
+          <div class="control-item">
+            <label>Min Informative SNPs</label>
+            <input type="number" id="paramMinSnps" value="5" min="2" max="25" step="1">
+          </div>
+          <div class="control-item">
+            <label>Fisher Exact p-Threshold</label>
+            <select id="paramPThresh">
+              <option value="0.001">1e-3 (Declared Audit)</option>
+              <option value="0.0001" selected>1e-4 (Standard Discovery)</option>
+              <option value="0.00001">1e-5 (Strict Discovery)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="checkbox-row">
+          <label>
+            <input type="checkbox" id="paramMaskLoops" checked>
+            Mask hypervariable <em>gp120</em> loops (V1–V5) &amp; <em>gag</em> p6 indel hotspot
+          </label>
+          <label>
+            <input type="checkbox" id="paramMaskDrm" checked>
+            Mask Stanford HIVDB convergent drug-resistance codons in <em>pol</em>
+          </label>
+        </div>
+
+        <button class="run-btn" onclick="runScreen()">Screen Sequences (WASM)</button>
+      </div>
+
+      <!-- RIGHT PANEL: RESULTS -->
+      <div class="panel">
+        <div class="panel-title">
+          <span>Deconvolution &amp; Subtyping Report</span>
+          <div class="export-bar">
+            <button class="btn-secondary" onclick="exportCSV()">Export CSV</button>
+            <button class="btn-secondary" onclick="exportJSON()">Export JSON</button>
+          </div>
+        </div>
+
+        <div class="summary-strip">
+          <div class="stat-card accent">
+            <div class="stat-label">Sequences Screened</div>
+            <div class="stat-value" id="statCount">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Clonal Basal Subtypes</div>
+            <div class="stat-value" id="statClonal">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Mosaic Recombinants</div>
+            <div class="stat-value" id="statMosaic">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Execution Time</div>
+            <div class="stat-value" id="statTime">0 ms</div>
+          </div>
+        </div>
+
+        <div class="legend-bar" id="legendBar"></div>
+
+        <div id="resultsContainer"></div>
+      </div>
+    </div>
+
+    <!-- TAB 2: COMPENDIUM ATLAS -->
+    <div id="viewAtlas" class="panel hidden">
+      <div class="panel-title">
+        <span>Embedded HIV-1 Group M Spatio-Temporal Compendium (162 LANL Subtypes/CRFs + 38 Novel Circulating Lineages)</span>
+      </div>
+      <input type="text" id="atlasSearch" class="search-input" placeholder="Filter by CRF/Subtype (e.g. CRF02_AG, NOVEL, POL_NOV, G0, ?E)..." onkeyup="renderAtlasTable()">
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Lineage Label</th>
+              <th>Descriptive Spatio-Temporal Formula</th>
+              <th>Backbone</th>
+              <th>Scope</th>
+              <th>t_MRCA</th>
+              <th>Genome Architecture (HXB2 790..9417)</th>
+              <th>HXB2 Barcode</th>
+            </tr>
+          </thead>
+          <tbody id="atlasTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import init, { WasmRhizType } from './pkg/rhiztype_wasm.js';
+
+    const TRUNK_COLORS = {
+      "A1": "#0072B2",
+      "A2": "#56B4E9",
+      "A6": "#2b5c8f",
+      "B":  "#E69F00",
+      "C":  "#009E73",
+      "D":  "#D55E00",
+      "F1": "#CC79A7",
+      "F2": "#994F88",
+      "G0": "#F0E442",
+      "H":  "#8c564b",
+      "J":  "#17becf",
+      "K":  "#7f7f7f",
+      "L":  "#bcbd22",
+      "?E": "#d62728",
+      "Unattributed": "#333333"
+    };
+
+    const HXB2_GENES = [
+      { id: "gag", start: 790, end: 2292 },
+      { id: "pol", start: 2085, end: 5096 },
+      { id: "vif", start: 5041, end: 5619 },
+      { id: "vpr", start: 5559, end: 5850 },
+      { id: "vpu", start: 6062, end: 6310 },
+      { id: "env", start: 6225, end: 8795 },
+      { id: "nef", start: 8797, end: 9417 }
+    ];
+
+    let wasmEngine = null;
+    let lastResults = [];
+    let compendiumList = [];
+
+    function renderLegend() {
+      const bar = document.getElementById('legendBar');
+      bar.innerHTML = '<span style="font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;margin-right:4px;">Basal Trunks:</span>';
+      for (const [trk, color] of Object.entries(TRUNK_COLORS)) {
+        if (trk === "Unattributed") continue;
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+        item.innerHTML = `<span class="swatch" style="background:${color}"></span><span>${trk}</span>`;
+        bar.appendChild(item);
+      }
+    }
+
+    function renderBarcodeSVG(barcode, width = 680, height = 42, showGeneTrack = true) {
+      if (!barcode) return '';
+      const codingStart = 790;
+      const codingSpan = 9417 - 790 + 1;
+      const parts = barcode.split('|');
+      let rects = '';
+
+      for (const part of parts) {
+        const [trk, rest] = part.split(':');
+        if (!rest) continue;
+        const cleanCoords = rest.split('[')[0];
+        const [sStr, eStr] = cleanCoords.split('-');
+        const s = parseInt(sStr, 10);
+        const e = parseInt(eStr, 10);
+        const x = Math.max(0, ((s - codingStart) / codingSpan) * width);
+        const w = Math.max(2, ((e - s + 1) / codingSpan) * width);
+        const col = TRUNK_COLORS[trk] || '#666';
+        const textColor = (trk === 'G0') ? '#111' : '#fff';
+        const label = w > 34 ? `<text x="${x + w / 2}" y="17" fill="${textColor}" font-size="10" font-weight="700" font-family="monospace" text-anchor="middle">${trk}</text>` : '';
+        rects += `<g><rect x="${x.toFixed(1)}" y="3" width="${w.toFixed(1)}" height="20" fill="${col}" stroke="#111" stroke-width="0.6" rx="1.5"><title>${trk}: HXB2 ${s}..${e} (${e - s + 1} nt)</title></rect>${label}</g>`;
+      }
+
+      let geneTrack = '';
+      if (showGeneTrack) {
+        for (const g of HXB2_GENES) {
+          const gx = ((g.start - codingStart) / codingSpan) * width;
+          const gw = ((g.end - g.start + 1) / codingSpan) * width;
+          geneTrack += `<rect x="${gx.toFixed(1)}" y="27" width="${gw.toFixed(1)}" height="12" fill="#eae8e1" stroke="#9c9a94" stroke-width="0.5"/>`;
+          if (gw > 24) {
+            geneTrack += `<text x="${(gx + gw / 2).toFixed(1)}" y="36" fill="#585651" font-size="8.5" font-family="sans-serif" font-weight="600" text-anchor="middle">${g.id}</text>`;
+          }
+        }
+      }
+
+      return `<svg width="${width}" height="${showGeneTrack ? height : 26}" viewBox="0 0 ${width} ${showGeneTrack ? height : 26}" style="background:#f5f4f0;border-radius:4px;border:1px solid #d0cecd;">${rects}${geneTrack}</svg>`;
+    }
+
+    window.runScreen = function() {
+      if (!wasmEngine) return;
+      const fasta = document.getElementById('fastaInput').value.trim();
+      if (!fasta) return;
+
+      const gamma = parseFloat(document.getElementById('paramGamma').value) || 0.0;
+      const minSpan = parseInt(document.getElementById('paramMinSpan').value, 10) || 0;
+      const minSnps = parseInt(document.getElementById('paramMinSnps').value, 10) || 5;
+      const pThresh = parseFloat(document.getElementById('paramPThresh').value) || 1e-4;
+      const maskLoops = document.getElementById('paramMaskLoops').checked;
+      const maskDrm = document.getElementById('paramMaskDrm').checked;
+
+      const t0 = performance.now();
+      const jsonOut = wasmEngine.screen_fasta(fasta, gamma, minSpan, minSnps, pThresh, maskLoops, maskDrm);
+      const elapsed = performance.now() - t0;
+
+      lastResults = JSON.parse(jsonOut);
+      document.getElementById('statCount').textContent = lastResults.length;
+      document.getElementById('statClonal').textContent = lastResults.filter(r => r.is_clonal).length;
+      document.getElementById('statMosaic').textContent = lastResults.filter(r => !r.is_clonal && r.n_segments > 1).length;
+      document.getElementById('statTime').textContent = `${elapsed.toFixed(1)} ms`;
+
+      const container = document.getElementById('resultsContainer');
+      container.innerHTML = '';
+
+      for (const r of lastResults) {
+        const card = document.createElement('div');
+        card.className = 'seq-card';
+
+        const typePill = r.is_clonal
+          ? `<span class="pill pill-clonal">Clonal Basal Subtype (${r.backbone_trunk})</span>`
+          : `<span class="pill pill-mosaic">Mosaic Recombinant (${r.n_breakpoints} Breakpoint${r.n_breakpoints === 1 ? '' : 's'})</span>`;
+
+        const matchBadges = r.matches.map(m => `<strong>${m.label}</strong> <span style="color:var(--text-tertiary)">[${m.match_type}]</span>`).join(' &bull; ');
+
+        let bpTable = '';
+        if (r.breakpoints && r.breakpoints.length > 0) {
+          const rows = r.breakpoints.map(b => `
+            <tr>
+              <td>HXB2 ${b.bp_hxb2}</td>
+              <td>${b.left_trunk} &rarr; ${b.right_trunk}</td>
+              <td>${b.ci_hxb2_low}–${b.ci_hxb2_high} (${b.ci_width_nt} nt)</td>
+              <td>${b.n11}/${b.n12} vs ${b.n21}/${b.n22}</td>
+              <td>${b.p_fisher.toExponential(2)}</td>
+            </tr>
+          `).join('');
+          bpTable = `
+            <div style="margin-top:10px;font-size:11px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;">Verified Recombination Breakpoints (Fisher Exact Audit):</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Midpoint</th>
+                  <th>Transition</th>
+                  <th>Informative-SNP Plateau CI</th>
+                  <th>2&times;2 Allelic Counts</th>
+                  <th>p_Fisher</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          `;
+        }
+
+        const segRows = (r.segments || []).map(s => `
+          <tr>
+            <td>#${s.seg_idx}</td>
+            <td><strong>${s.trunk}</strong></td>
+            <td>${s.short_gene}</td>
+            <td>HXB2 ${s.hxb2_start}–${s.hxb2_end} (${s.span_nt} nt)</td>
+            <td>${s.ci_hxb2_start}–${s.ci_hxb2_end}</td>
+            <td>${s.identity_pct.toFixed(1)}%</td>
+          </tr>
+        `).join('');
+
+        card.innerHTML = `
+          <div class="seq-header">
+            <div class="seq-title">&gt; ${r.sequence_id}</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span class="pill pill-scope">Scope: ${r.locus_scope} (HXB2 ${r.hxb2_span_start}..${r.hxb2_span_end})</span>
+              ${typePill}
+            </div>
+          </div>
+          <div class="meta-grid">
+            <div>
+              <div class="meta-key">Coordinate-Anchored Formula</div>
+              <div class="meta-val" style="color:var(--braun-orange);font-size:13.5px;">${r.descriptive_name}</div>
+            </div>
+            <div>
+              <div class="meta-key">Alignment &amp; Coverage</div>
+              <div class="meta-val">${r.alignment_mode} (${r.mapped_coding_nt} coding nt)</div>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <div class="meta-key">Compendium Lineage Match</div>
+              <div class="meta-val">${matchBadges}</div>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <div class="meta-key">CI-Bracketed HXB2 Barcode</div>
+              <div class="meta-val" style="font-size:11px;">${r.ci_bracketed_barcode}</div>
+            </div>
+          </div>
+          <div class="svg-container">
+            ${renderBarcodeSVG(r.hxb2_barcode, 820, 42, true)}
+          </div>
+          <details style="margin-top:8px;">
+            <summary style="cursor:pointer;font-size:11.5px;font-weight:700;color:var(--text-secondary);">Show Segment Table (${r.n_segments}) &amp; Breakpoint Audit (${r.n_breakpoints})</summary>
+            <table>
+              <thead>
+                <tr>
+                  <th>Seg</th>
+                  <th>Basal Trunk</th>
+                  <th>Gene / Domain</th>
+                  <th>HXB2 Coordinates</th>
+                  <th>CI Bounds</th>
+                  <th>Trunk Identity</th>
+                </tr>
+              </thead>
+              <tbody>${segRows}</tbody>
+            </table>
+            ${bpTable}
+          </details>
+        `;
+        container.appendChild(card);
+      }
+    };
+
+    window.switchTab = function(tab) {
+      document.getElementById('viewScreen').classList.toggle('hidden', tab !== 'screen');
+      document.getElementById('viewAtlas').classList.toggle('hidden', tab !== 'atlas');
+      document.getElementById('tabBtnScreen').classList.toggle('active', tab === 'screen');
+      document.getElementById('tabBtnAtlas').classList.toggle('active', tab === 'atlas');
+      if (tab === 'atlas') renderAtlasTable();
+    };
+
+    window.renderAtlasTable = function() {
+      const q = (document.getElementById('atlasSearch').value || '').toLowerCase();
+      const tbody = document.getElementById('atlasTableBody');
+      const filtered = compendiumList.filter(c =>
+        c.label.toLowerCase().includes(q) ||
+        c.descriptive_name.toLowerCase().includes(q) ||
+        c.status.toLowerCase().includes(q) ||
+        c.hxb2_barcode.toLowerCase().includes(q)
+      );
+      tbody.innerHTML = filtered.map(c => `
+        <tr>
+          <td><strong>${c.label}</strong><br><span style="font-size:10px;color:var(--text-tertiary)">${c.status}</span></td>
+          <td style="color:var(--braun-orange);font-weight:700;">${c.descriptive_name}</td>
+          <td>${c.backbone}</td>
+          <td>${c.scope}</td>
+          <td>${c.t_mrca ? c.t_mrca.toFixed(1) : '—'}</td>
+          <td>${renderBarcodeSVG(c.hxb2_barcode, 300, 26, false)}</td>
+          <td style="font-size:10.5px;max-width:260px;word-break:break-all;">${c.hxb2_barcode}</td>
+        </tr>
+      `).join('');
+    };
+
+    window.handleFileSelect = function(ev) {
+      const file = ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('fastaInput').value = e.target.result;
+        window.runScreen();
+      };
+      reader.readAsText(file);
+    };
+
+    const dz = document.getElementById('dropzone');
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = ev => {
+          document.getElementById('fastaInput').value = ev.target.result;
+          window.runScreen();
+        };
+        reader.readAsText(e.dataTransfer.files[0]);
+      }
+    });
+
+    window.exportCSV = function() {
+      if (!lastResults.length) return;
+      const header = "sequence_id,raw_length_nt,mapped_coding_nt,hxb2_span_start,hxb2_span_end,locus_scope,alignment_mode,descriptive_name,structural_formula,backbone_trunk,n_segments,n_breakpoints,hxb2_barcode,ci_bracketed_barcode,compendium_matches\n";
+      const rows = lastResults.map(r => {
+        const m = (r.matches || []).map(x => `${x.label} (${x.descriptive_name})`).join('; ');
+        return `"${r.sequence_id}",${r.raw_length_nt},${r.mapped_coding_nt},${r.hxb2_span_start},${r.hxb2_span_end},${r.locus_scope},"${r.alignment_mode}","${r.descriptive_name}","${r.structural_formula}",${r.backbone_trunk},${r.n_segments},${r.n_breakpoints},"${r.hxb2_barcode}","${r.ci_bracketed_barcode}","${m}"`;
+      }).join('\n');
+      const blob = new Blob([header + rows], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'rhiztype_results.csv';
+      a.click();
+    };
+
+    window.exportJSON = function() {
+      if (!lastResults.length) return;
+      const blob = new Blob([JSON.stringify(lastResults, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'rhiztype_results.json';
+      a.click();
+    };
+
+    window.loadPreset = async function(name) {
+      const resp = await fetch(`./examples/${name}.fasta`);
+      if (resp.ok) {
+        document.getElementById('fastaInput').value = await resp.text();
+        window.runScreen();
+      }
+    };
+
+    async function boot() {
+      renderLegend();
+      await init();
+      wasmEngine = new WasmRhizType();
+      compendiumList = JSON.parse(wasmEngine.get_compendium_json());
+      document.getElementById('wasmStatus').textContent = '● WASM Ready (200 Lineages)';
+      await window.loadPreset('demos');
+    }
+
+    boot();
+  </script>
+</body>
+</html>

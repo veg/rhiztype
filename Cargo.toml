@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/rhiztype-core",
+    "crates/rhiztype-cli",
+    "crates/rhiztype-wasm",
+]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

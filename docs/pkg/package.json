@@ -1,0 +1,17 @@
+{
+  "name": "rhiztype-wasm",
+  "type": "module",
+  "description": "WebAssembly bindings for RhizType HIV-1 subtyping and mosaic deconvolution",
+  "version": "0.1.0",
+  "license": "MIT",
+  "files": [
+    "rhiztype_wasm_bg.wasm",
+    "rhiztype_wasm.js",
+    "rhiztype_wasm.d.ts"
+  ],
+  "main": "rhiztype_wasm.js",
+  "types": "rhiztype_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
