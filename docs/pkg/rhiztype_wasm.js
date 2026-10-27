@@ -42,16 +42,15 @@ export class WasmRhizType {
      * @param {number} min_informative_snps
      * @param {number} p_fisher_thresh
      * @param {boolean} mask_hypervariable_loops
-     * @param {boolean} mask_pol_drm
      * @returns {string}
      */
-    screen_fasta(fasta_text, gamma, min_span_nt, min_informative_snps, p_fisher_thresh, mask_hypervariable_loops, mask_pol_drm) {
+    screen_fasta(fasta_text, gamma, min_span_nt, min_informative_snps, p_fisher_thresh, mask_hypervariable_loops) {
         let deferred2_0;
         let deferred2_1;
         try {
             const ptr0 = passStringToWasm0(fasta_text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
             const len0 = WASM_VECTOR_LEN;
-            const ret = wasm.wasmrhiztype_screen_fasta(this.__wbg_ptr, ptr0, len0, gamma, min_span_nt, min_informative_snps, p_fisher_thresh, mask_hypervariable_loops, mask_pol_drm);
+            const ret = wasm.wasmrhiztype_screen_fasta(this.__wbg_ptr, ptr0, len0, gamma, min_span_nt, min_informative_snps, p_fisher_thresh, mask_hypervariable_loops);
             deferred2_0 = ret[0];
             deferred2_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);

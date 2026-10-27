@@ -13,7 +13,7 @@ export class WasmRhizType {
      * Screen a FASTA string (aligned or unaligned, full-length or partial pol/env)
      * and return a JSON array of `SequenceResult` objects.
      */
-    screen_fasta(fasta_text: string, gamma: number, min_span_nt: number, min_informative_snps: number, p_fisher_thresh: number, mask_hypervariable_loops: boolean, mask_pol_drm: boolean): string;
+    screen_fasta(fasta_text: string, gamma: number, min_span_nt: number, min_informative_snps: number, p_fisher_thresh: number, mask_hypervariable_loops: boolean): string;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -23,7 +23,7 @@ export interface InitOutput {
     readonly __wbg_wasmrhiztype_free: (a: number, b: number) => void;
     readonly wasmrhiztype_get_compendium_json: (a: number) => [number, number];
     readonly wasmrhiztype_new: () => number;
-    readonly wasmrhiztype_screen_fasta: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number];
+    readonly wasmrhiztype_screen_fasta: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => [number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;

@@ -11861,13 +11861,13 @@
       "short_code": "07_BC",
       "category": "CRF_Primary",
       "status": "Verified_Recombinant_Lineage",
-      "descriptive_name": "C[B:gag..PR+tat1..gp120+nef]@1977",
-      "structural_formula": "C[B:gag..PR+tat1..gp120+nef]",
+      "descriptive_name": "C[B:gag..PR+RT+tat1..gp120+nef]@1977",
+      "structural_formula": "C[B:gag..PR+RT+tat1..gp120+nef]",
       "backbone": "C",
       "t_mrca": 1977.0,
       "t_mrca_ci_low": 1965.2,
       "t_mrca_ci_high": 1983.9,
-      "hxb2_barcode": "C:790-1980|B:1981-2541|C:2542-5850|B:5850-6428|C:6429-8865|B:8865-9057|C:9058-9417",
+      "hxb2_barcode": "C:790-1980|B:1981-2541|C:2542-2963|B:2964-3179|C:3180-5850|B:5850-6428|C:6429-8865|B:8865-9057|C:9058-9417",
       "scope": "full"
     },
     {
@@ -11875,13 +11875,13 @@
       "short_code": "08_BC",
       "category": "CRF_Primary",
       "status": "Verified_Recombinant_Lineage",
-      "descriptive_name": "C[B:RT]@1989",
-      "structural_formula": "C[B:RT]",
+      "descriptive_name": "C[B:gag.CA+RT+nef]@1989",
+      "structural_formula": "C[B:gag.CA+RT+nef]",
       "backbone": "C",
       "t_mrca": 1989.3,
       "t_mrca_ci_low": 1982.0,
       "t_mrca_ci_high": 1993.4,
-      "hxb2_barcode": "C:790-2840|B:2841-3164|C:3165-9417",
+      "hxb2_barcode": "C:790-1201|B:1202-1636|C:1637-2840|B:2841-3164|C:3165-8863|B:8864-8997|C:8998-9417",
       "scope": "full"
     },
     {

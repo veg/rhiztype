@@ -32,7 +32,7 @@ struct Args {
     #[arg(short, long, default_value_t = 0)]
     limit: usize,
 
-    /// Template-switch penalty gamma (auto-scales to 10.5 full / 12.0 partial if omitted)
+    /// Template-switch penalty gamma (default 7.0 if omitted)
     #[arg(long)]
     gamma: Option<f64>,
 
@@ -51,10 +51,6 @@ struct Args {
     /// Disable masking of hypervariable gp120 V1-V5 loops and gag p6 PTAP indel zone
     #[arg(long, default_value_t = false)]
     no_loop_mask: bool,
-
-    /// Disable masking of Stanford HIVDB major convergent drug-resistance codons in pol
-    #[arg(long, default_value_t = false)]
-    no_drm_mask: bool,
 
     /// Quiet mode (suppress per-sequence console report)
     #[arg(short, long, default_value_t = false)]
@@ -84,7 +80,6 @@ fn main() {
         min_informative_snps: args.min_snps,
         p_fisher_thresh: args.p_thresh,
         mask_hypervariable_loops: !args.no_loop_mask,
-        mask_pol_drm: !args.no_drm_mask,
     };
 
     let results: Vec<SequenceResult> = records

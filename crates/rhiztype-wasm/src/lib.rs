@@ -25,7 +25,6 @@ impl WasmRhizType {
         min_informative_snps: usize,
         p_fisher_thresh: f64,
         mask_hypervariable_loops: bool,
-        mask_pol_drm: bool,
     ) -> String {
         let records = RhizTypeEngine::parse_fasta(fasta_text);
         let cfg = ScreeningConfig {
@@ -38,7 +37,6 @@ impl WasmRhizType {
             min_informative_snps,
             p_fisher_thresh,
             mask_hypervariable_loops,
-            mask_pol_drm,
         };
 
         let results: Vec<_> = records

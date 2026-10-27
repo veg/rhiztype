@@ -24,13 +24,6 @@ const HYPERVARIABLE_MASK_RANGES: &[(usize, usize)] = &[
     (7596, 7637),
 ];
 
-/// Major Stanford HIVDB convergent drug-resistance codons in PR, RT, and IN
-const DRM_PR_CODONS: &[usize] = &[30, 32, 46, 47, 48, 50, 54, 76, 82, 84, 88, 90];
-const DRM_RT_CODONS: &[usize] = &[
-    41, 65, 67, 70, 74, 100, 101, 103, 106, 115, 138, 151, 181, 184, 188, 190, 210, 215, 219, 230,
-];
-const DRM_IN_CODONS: &[usize] = &[66, 92, 118, 138, 140, 143, 148, 155, 263];
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompendiumEntry {
     pub label: String,
@@ -56,7 +49,7 @@ struct CompendiumBundle {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScreeningConfig {
-    /// Template-switch penalty gamma (default 10.5 for full genome, auto-scaled to 12.0 for partial <5000 nt)
+    /// Template-switch penalty gamma (default 7.0)
     pub gamma: Option<f64>,
     /// Minimum segment span in HXB2 nucleotides (default 120 for full, 150 for partial)
     pub min_span_nt: Option<usize>,
@@ -66,8 +59,6 @@ pub struct ScreeningConfig {
     pub p_fisher_thresh: f64,
     /// Mask hypervariable gp120 V1-V5 loops and gag p6 PTAP duplication zone
     pub mask_hypervariable_loops: bool,
-    /// Mask Stanford HIVDB major drug-resistance codons in pol
-    pub mask_pol_drm: bool,
 }
 
 impl Default for ScreeningConfig {
@@ -78,7 +69,6 @@ impl Default for ScreeningConfig {
             min_informative_snps: 5,
             p_fisher_thresh: 1e-4,
             mask_hypervariable_loops: true,
-            mask_pol_drm: true,
         }
     }
 }
@@ -156,7 +146,6 @@ pub struct RhizTypeEngine {
     lanl_msa_to_hxb2: Vec<usize>,
     pub compendium: Vec<CompendiumEntry>,
     loop_mask_coding: Vec<bool>,
-    drm_mask_coding: Vec<bool>,
 }
 
 fn base_to_int(b: u8) -> i8 {
@@ -267,26 +256,6 @@ impl RhizTypeEngine {
             }
         }
 
-        let mut drm_mask_coding = vec![false; CODING_LEN];
-        for &c in DRM_PR_CODONS {
-            let s = 2253 + (c - 1) * 3;
-            for h in s..(s + 3) {
-                drm_mask_coding[h - CODING_START_HXB2] = true;
-            }
-        }
-        for &c in DRM_RT_CODONS {
-            let s = 2550 + (c - 1) * 3;
-            for h in s..(s + 3) {
-                drm_mask_coding[h - CODING_START_HXB2] = true;
-            }
-        }
-        for &c in DRM_IN_CODONS {
-            let s = 4230 + (c - 1) * 3;
-            for h in s..(s + 3) {
-                drm_mask_coding[h - CODING_START_HXB2] = true;
-            }
-        }
-
         Self {
             trunk_names,
             trunk_mat,
@@ -297,7 +266,6 @@ impl RhizTypeEngine {
             lanl_msa_to_hxb2: bundle.lanl_msa_to_hxb2,
             compendium: bundle.compendium,
             loop_mask_coding,
-            drm_mask_coding,
         }
     }
 
@@ -742,7 +710,7 @@ impl RhizTypeEngine {
             "partial".to_string()
         };
 
-        // Apply artifact shields (hypervariable loops & pol DRM masks) if enabled
+        // Apply artifact shield for hypervariable loops if enabled
         if cfg.mask_hypervariable_loops {
             for i in 0..CODING_LEN {
                 if self.loop_mask_coding[i] {
@@ -750,19 +718,8 @@ impl RhizTypeEngine {
                 }
             }
         }
-        if cfg.mask_pol_drm && (locus_scope == "pol" || locus_scope == "full") {
-            for i in 0..CODING_LEN {
-                if self.drm_mask_coding[i] {
-                    q_coding[i] = -1;
-                }
-            }
-        }
 
-        let gamma = cfg.gamma.unwrap_or(if locus_scope == "full" {
-            10.5
-        } else {
-            12.0
-        });
+        let gamma = cfg.gamma.unwrap_or(7.0);
         let min_span_nt = cfg.min_span_nt.unwrap_or(if locus_scope == "full" {
             120
         } else {
@@ -882,7 +839,14 @@ impl RhizTypeEngine {
             for k in 0..k_total {
                 let stay_cost = dp[k * l_sub + (u - 1)];
                 let emit = if k < k_trunks {
-                    self.site_emission_cost(q_sub[u], self.trunk_mat[k][cod_pos], mismatch_cost)
+                    let base_c =
+                        self.site_emission_cost(q_sub[u], self.trunk_mat[k][cod_pos], mismatch_cost);
+                    // Require >3.5% SNP advantage before preferring the partial ?E (CRF01_AE) cassette over sampled basal trunks
+                    if k + 1 == k_trunks && q_sub[u] >= 0 {
+                        base_c + 0.035
+                    } else {
+                        base_c
+                    }
                 } else if q_sub[u] >= 0 {
                     ghost_cost
                 } else {
@@ -1411,6 +1375,14 @@ impl RhizTypeEngine {
                 }
                 let concordance = same_trunk_ovl as f64 / total_ovl as f64;
 
+                let q_min_h = segs.first().map(|s| s.hxb2_start).unwrap_or(790);
+                let q_max_h = segs.last().map(|s| s.hxb2_end).unwrap_or(9417);
+                let span_ebps = entry_bps
+                    .iter()
+                    .filter(|(_, _, pos)| *pos >= q_min_h.saturating_sub(150) && *pos <= q_max_h + 150)
+                    .count()
+                    .max(1);
+
                 let mut shared = 0usize;
                 let mut pos_shared = 0usize;
                 for bp in bps {
@@ -1429,12 +1401,12 @@ impl RhizTypeEngine {
                     }
                 }
 
-                if (shared == bps.len() && shared == entry_bps.len())
+                if (shared == bps.len() && shared == span_ebps)
                     || (concordance >= 0.88 && shared >= 1)
                     || (concordance >= 0.91 && pos_shared >= 2)
-                    || (shared >= 3 && shared * 4 >= entry_bps.len() * 3)
+                    || (shared >= 3 && shared * 4 >= span_ebps * 3)
                 {
-                    scored_candidates.push((concordance, shared.max(pos_shared), entry_bps.len(), entry));
+                    scored_candidates.push((concordance, shared.max(pos_shared), span_ebps, entry));
                 }
             }
 

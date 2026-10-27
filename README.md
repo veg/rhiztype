@@ -17,8 +17,8 @@
    - Screens queries directly against the 13 scrubbed Group M basal reference trunks (`A1, A2, A6, B, C, D, F1, F2, G0, H, J, K, L`)—with the 12 historical reference-panel contaminations masked out—plus an **unpolarized ancestral root channel** and the unsampled `CRF01_AE` `vif..nef` (`?E`) trunk (`HXB2 5097–9417`).
    - Resolves deep-branching second-generation CRFs (`CRF01_AE`, `CRF02_AG`, `CRF06_cpx`, `CRF11_cpx`, `CRF63_02A6`, etc.) into their elementary basal building blocks without recursive label nesting.
 
-3. **Artifact Shields & Local $2 \times 2$ Fisher Exact Breakpoint Verification**
-   - Automatically masks length-polymorphic hypervariable loops (`gp120` V1–V5 and `gag` p6 PTAP duplication hotspots) and 43 major Stanford HIVDB drug-resistance mutation (DRM) codons in `pol` (`PR`, `RT`, `IN`) before segmentation so convergent clinical resistance or indel noise never triggers false mosaic calls.
+3. **Hypervariable Loop Shield & Local $2 \times 2$ Fisher Exact Breakpoint Verification**
+   - Automatically masks length-polymorphic hypervariable loops (`gp120` V1–V5 and `gag` p6 PTAP duplication hotspots) before segmentation so alignment indel noise never triggers false mosaic calls, while preserving all coding positions across `pol` (`PR`, `RT`, `IN`).
    - Evaluates every candidate recombination junction via a one-sided $2 \times 2$ Fisher's exact test ($p < 10^{-4}$ default) and a minimum informative-SNP support floor ($n_{11}, n_{22} \ge 5$), reporting exact informative-site plateau confidence intervals (`[CI:low-high]`).
 
 4. **Dual-Layer Coordinate Nomenclature & 200-Lineage Compendium Matching**

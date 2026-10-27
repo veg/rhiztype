@@ -549,10 +549,6 @@
             <input type="checkbox" id="paramMaskLoops" checked>
             Mask hypervariable <em>gp120</em> loops (V1–V5) &amp; <em>gag</em> p6 indel hotspot
           </label>
-          <label>
-            <input type="checkbox" id="paramMaskDrm" checked>
-            Mask Stanford HIVDB convergent drug-resistance codons in <em>pol</em>
-          </label>
         </div>
 
         <button class="run-btn" onclick="runScreen()">Screen Sequences (WASM)</button>
@@ -712,10 +708,9 @@
       const minSnps = parseInt(document.getElementById('paramMinSnps').value, 10) || 5;
       const pThresh = parseFloat(document.getElementById('paramPThresh').value) || 1e-4;
       const maskLoops = document.getElementById('paramMaskLoops').checked;
-      const maskDrm = document.getElementById('paramMaskDrm').checked;
 
       const t0 = performance.now();
-      const jsonOut = wasmEngine.screen_fasta(fasta, gamma, minSpan, minSnps, pThresh, maskLoops, maskDrm);
+      const jsonOut = wasmEngine.screen_fasta(fasta, gamma, minSpan, minSnps, pThresh, maskLoops);
       const elapsed = performance.now() - t0;
 
       lastResults = JSON.parse(jsonOut);
