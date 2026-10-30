@@ -1342,7 +1342,7 @@ impl RhizTypeEngine {
 
         // 2. Check coordinate-level mosaic concordance and breakpoint proximity (+/- 200 nt) against compendium barcodes
         if !bps.is_empty() && matches.len() < 4 {
-            let mut scored_candidates: Vec<(f64, usize, usize, &CompendiumEntry)> = Vec::new();
+            let mut scored_candidates: Vec<(f64, usize, usize, usize, &CompendiumEntry)> = Vec::new();
 
             for entry in &self.compendium {
                 if matches.iter().any(|m| m.label == entry.label) {
@@ -1406,7 +1406,7 @@ impl RhizTypeEngine {
                     || (concordance >= 0.91 && pos_shared >= 2)
                     || (shared >= 3 && shared * 4 >= span_ebps * 3)
                 {
-                    scored_candidates.push((concordance, shared.max(pos_shared), span_ebps, entry));
+                    scored_candidates.push((concordance, shared, pos_shared, span_ebps, entry));
                 }
             }
 
@@ -1414,10 +1414,12 @@ impl RhizTypeEngine {
                 b.0.partial_cmp(&a.0)
                     .unwrap_or(std::cmp::Ordering::Equal)
                     .then_with(|| b.1.cmp(&a.1))
+                    .then_with(|| b.2.cmp(&a.2))
+                    .then_with(|| a.4.label.cmp(&b.4.label))
             });
 
-            for (concordance, shared, total_ebps, entry) in scored_candidates.into_iter().take(4) {
-                let match_type = if shared == bps.len() && shared == total_ebps {
+            for (concordance, shared, _pos_shared, span_ebps, entry) in scored_candidates.into_iter().take(4) {
+                let match_type = if shared == bps.len() && shared == span_ebps {
                     format!(
                         "Homologous Breakpoints ({:.1}% coordinate concordance)",
                         concordance * 100.0
@@ -1427,7 +1429,7 @@ impl RhizTypeEngine {
                         "Homologous Mosaic ({:.1}% concordance, {}/{} breakpoints)",
                         concordance * 100.0,
                         shared,
-                        total_ebps
+                        span_ebps.max(shared)
                     )
                 };
                 matches.push(LineageMatch {
@@ -1440,7 +1442,15 @@ impl RhizTypeEngine {
             }
         }
 
-        if matches.is_empty() {
+        if matches.is_empty() && bps.is_empty() {
+            matches.push(LineageMatch {
+                label: "Unindexed_Clonal_Lineage".to_string(),
+                descriptive_name: struct_formula.to_string(),
+                status: "Clonal call with no compendium entry for this trunk/scope".to_string(),
+                match_type: "No Compendium Match".to_string(),
+                hxb2_barcode: String::new(),
+            });
+        } else if matches.is_empty() {
             matches.push(LineageMatch {
                 label: "Novel_URF_or_Unindexed_Mosaic".to_string(),
                 descriptive_name: struct_formula.to_string(),
@@ -1530,9 +1540,6 @@ pub fn hxb2_to_short_gene(h0: usize, h1: usize) -> String {
     let g1 = pt_gene(h1.saturating_sub(15).max(h0));
 
     if g0 == g1 {
-        if g0.starts_with("gag.") && span > 650 {
-            return "gag".to_string();
-        }
         if (g0 == "PR" || g0 == "RT" || g0 == "IN") && span > 1800 {
             return "pol".to_string();
         }
@@ -1548,7 +1555,10 @@ pub fn hxb2_to_short_gene(h0: usize, h1: usize) -> String {
         return format!("{}..{}", g0, g1);
     }
     if g0 == "PR" && g1 == "IN" {
-        return "pol".to_string();
+        if span > 1800 {
+            return "pol".to_string();
+        }
+        return "PR..IN".to_string();
     }
     if g0 == "gp120" && g1 == "gp41" {
         if span > 1800 {
@@ -1590,7 +1600,7 @@ fn format_descriptive_name(
     } else {
         let mut all_spans: Vec<(String, usize)> =
             trunk_spans.iter().map(|(k, &v)| (k.clone(), v)).collect();
-        all_spans.sort_by(|a, b| b.1.cmp(&a.1));
+        all_spans.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
         all_spans
             .first()
             .map(|x| x.0.clone())
@@ -1638,6 +1648,37 @@ fn format_descriptive_name(
     let structural_formula = format!("{}[{}]", backbone, donor_parts.join(" | "));
     let descriptive_name = format!("{}{}", structural_formula, scope_suffix);
     (descriptive_name, backbone, structural_formula)
+}
+
+#[cfg(test)]
+mod naming_tests {
+    use super::*;
+
+    fn seg(trunk: &str, start: usize, end: usize) -> SegmentCall {
+        SegmentCall {
+            seg_idx: 0,
+            trunk: trunk.to_string(),
+            hxb2_start: start,
+            hxb2_end: end,
+            span_nt: end - start + 1,
+            ci_hxb2_start: start,
+            ci_hxb2_end: end,
+            short_gene: "pol".to_string(),
+            identity_pct: 100.0,
+        }
+    }
+
+    #[test]
+    fn backbone_tiebreak_is_deterministic() {
+        let a = seg("Unattributed", 800, 999);
+        let b = seg("?E", 1000, 1199);
+        for _ in 0..32 {
+            let (_, bb1, _) = format_descriptive_name(&[a.clone(), b.clone()], "full");
+            let (_, bb2, _) = format_descriptive_name(&[b.clone(), a.clone()], "full");
+            assert_eq!(bb1, "?E");
+            assert_eq!(bb2, "?E");
+        }
+    }
 }
 
 /// One-sided Fisher's exact test (`alternative = "greater"`) on a 2x2 contingency table `[[a, b], [c, d]]`.
