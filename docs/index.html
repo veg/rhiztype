@@ -273,7 +273,7 @@
 
     .summary-strip {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 12px;
       margin-bottom: 18px;
     }
@@ -378,6 +378,8 @@
       color: var(--status-orange);
       border: 1px solid var(--status-orange-border);
     }
+
+    .param-note { font-size: 10.5px; color: var(--text-tertiary); }
 
     .pill-scope {
       background: var(--status-blue-bg);
@@ -523,16 +525,19 @@
 
         <div class="controls-grid">
           <div class="control-item">
-            <label>Switch Penalty γ (0=Auto)</label>
+            <label>Switch Penalty γ (0 = default 7.0)</label>
             <input type="number" id="paramGamma" value="0" min="0" max="40" step="0.5">
+            <span class="param-note" id="noteGamma"></span>
           </div>
           <div class="control-item">
             <label>Min Segment Span nt (0=Auto)</label>
             <input type="number" id="paramMinSpan" value="0" min="0" max="1000" step="10">
+            <span class="param-note" id="noteMinSpan"></span>
           </div>
           <div class="control-item">
             <label>Min Informative SNPs</label>
             <input type="number" id="paramMinSnps" value="5" min="2" max="25" step="1">
+            <span class="param-note" id="noteMinSnps"></span>
           </div>
           <div class="control-item">
             <label>Fisher Exact p-Threshold</label>
@@ -576,6 +581,10 @@
           <div class="stat-card">
             <div class="stat-label">Mosaic Recombinants</div>
             <div class="stat-value" id="statMosaic">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Unclassifiable</div>
+            <div class="stat-value" id="statUnclassifiable">0</div>
           </div>
           <div class="stat-card">
             <div class="stat-label">Execution Time</div>
@@ -640,10 +649,22 @@
       { id: "pol", start: 2085, end: 5096 },
       { id: "vif", start: 5041, end: 5619 },
       { id: "vpr", start: 5559, end: 5850 },
+      { id: "tat", start: 5831, end: 6045 },
+      { id: "rev", start: 5970, end: 6045 },
       { id: "vpu", start: 6062, end: 6310 },
       { id: "env", start: 6225, end: 8795 },
       { id: "nef", start: 8797, end: 9417 }
     ];
+
+    function escapeHtml(v) {
+      return String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
+    function csvField(v) {
+      let t = String(v ?? '');
+      if (/^[=+\-@]/.test(t)) t = "'" + t;
+      return `"${t.replace(/"/g, '""')}"`;
+    }
 
     let wasmEngine = null;
     let lastResults = [];
@@ -679,23 +700,32 @@
         const w = Math.max(2, ((e - s + 1) / codingSpan) * width);
         const col = TRUNK_COLORS[trk] || '#666';
         const textColor = (trk === 'G0') ? '#111' : '#fff';
-        const label = w > 34 ? `<text x="${x + w / 2}" y="17" fill="${textColor}" font-size="10" font-weight="700" font-family="monospace" text-anchor="middle">${trk}</text>` : '';
-        rects += `<g><rect x="${x.toFixed(1)}" y="3" width="${w.toFixed(1)}" height="20" fill="${col}" stroke="#111" stroke-width="0.6" rx="1.5"><title>${trk}: HXB2 ${s}..${e} (${e - s + 1} nt)</title></rect>${label}</g>`;
+        const label = w > 34 ? `<text x="${x + w / 2}" y="17" fill="${textColor}" font-size="10" font-weight="700" font-family="monospace" text-anchor="middle">${escapeHtml(trk)}</text>` : '';
+        rects += `<g><rect x="${x.toFixed(1)}" y="3" width="${w.toFixed(1)}" height="20" fill="${col}" stroke="#111" stroke-width="0.6" rx="1.5"><title>${escapeHtml(trk)}: HXB2 ${s}..${e} (${e - s + 1} nt)</title></rect>${label}</g>`;
       }
 
       let geneTrack = '';
+      const rowOf = new Map();
       if (showGeneTrack) {
+        let prevEnd = [-Infinity, -Infinity];
+        HXB2_GENES.forEach(g => {
+          let row = g.start > prevEnd[0] ? 0 : (g.start > prevEnd[1] ? 1 : (prevEnd[0] <= prevEnd[1] ? 0 : 1));
+          prevEnd[row] = g.end;
+          rowOf.set(g.id, row);
+        });
         for (const g of HXB2_GENES) {
           const gx = ((g.start - codingStart) / codingSpan) * width;
           const gw = ((g.end - g.start + 1) / codingSpan) * width;
-          geneTrack += `<rect x="${gx.toFixed(1)}" y="27" width="${gw.toFixed(1)}" height="12" fill="#eae8e1" stroke="#9c9a94" stroke-width="0.5"/>`;
+          const gy = 27 + rowOf.get(g.id) * 14;
+          geneTrack += `<rect x="${gx.toFixed(1)}" y="${gy}" width="${gw.toFixed(1)}" height="12" fill="#eae8e1" stroke="#9c9a94" stroke-width="0.5"/>`;
           if (gw > 24) {
-            geneTrack += `<text x="${(gx + gw / 2).toFixed(1)}" y="36" fill="#585651" font-size="8.5" font-family="sans-serif" font-weight="600" text-anchor="middle">${g.id}</text>`;
+            geneTrack += `<text x="${(gx + gw / 2).toFixed(1)}" y="${gy + 9}" fill="#585651" font-size="8.5" font-family="sans-serif" font-weight="600" text-anchor="middle">${g.id}</text>`;
           }
         }
       }
 
-      return `<svg width="${width}" height="${showGeneTrack ? height : 26}" viewBox="0 0 ${width} ${showGeneTrack ? height : 26}" style="background:#f5f4f0;border-radius:4px;border:1px solid #d0cecd;">${rects}${geneTrack}</svg>`;
+      const svgH = showGeneTrack ? Math.max(height, 55) : 26;
+      return `<svg width="${width}" height="${svgH}" viewBox="0 0 ${width} ${svgH}" style="background:#f5f4f0;border-radius:4px;border:1px solid #d0cecd;">${rects}${geneTrack}</svg>`;
     }
 
     window.runScreen = function() {
@@ -703,41 +733,69 @@
       const fasta = document.getElementById('fastaInput').value.trim();
       if (!fasta) return;
 
-      const gamma = parseFloat(document.getElementById('paramGamma').value) || 0.0;
-      const minSpan = parseInt(document.getElementById('paramMinSpan').value, 10) || 0;
-      const minSnps = parseInt(document.getElementById('paramMinSnps').value, 10) || 5;
+      const readParam = (id, noteId, dflt, parse) => {
+        const el = document.getElementById(id);
+        const note = document.getElementById(noteId);
+        const v = parse(el.value);
+        const min = el.min === '' ? -Infinity : Number(el.min);
+        if (!Number.isFinite(v) || v < min) {
+          note.textContent = `invalid input; using default ${dflt}`;
+          return dflt;
+        }
+        note.textContent = '';
+        return v;
+      };
+      const gamma = readParam('paramGamma', 'noteGamma', 0, Number);
+      const minSpan = Math.trunc(readParam('paramMinSpan', 'noteMinSpan', 0, Number));
+      const minSnps = Math.trunc(readParam('paramMinSnps', 'noteMinSnps', 5, Number));
       const pThresh = parseFloat(document.getElementById('paramPThresh').value) || 1e-4;
       const maskLoops = document.getElementById('paramMaskLoops').checked;
 
+      const container = document.getElementById('resultsContainer');
       const t0 = performance.now();
-      const jsonOut = wasmEngine.screen_fasta(fasta, gamma, minSpan, minSnps, pThresh, maskLoops);
+      try {
+        const jsonOut = wasmEngine.screen_fasta(fasta, gamma, minSpan, minSnps, pThresh, maskLoops);
+        lastResults = JSON.parse(jsonOut);
+      } catch (err) {
+        lastResults = [];
+        for (const id of ['statCount', 'statClonal', 'statMosaic', 'statUnclassifiable']) document.getElementById(id).textContent = '0';
+        container.innerHTML = `<div class="seq-card">Error: ${escapeHtml(err && err.message ? err.message : err)}</div>`;
+        return;
+      }
       const elapsed = performance.now() - t0;
 
-      lastResults = JSON.parse(jsonOut);
+      const nUnclass = lastResults.filter(r => r.n_segments === 0).length;
       document.getElementById('statCount').textContent = lastResults.length;
-      document.getElementById('statClonal').textContent = lastResults.filter(r => r.is_clonal).length;
-      document.getElementById('statMosaic').textContent = lastResults.filter(r => !r.is_clonal && r.n_segments > 1).length;
+      document.getElementById('statClonal').textContent = lastResults.filter(r => r.n_segments !== 0 && r.is_clonal).length;
+      document.getElementById('statMosaic').textContent = lastResults.filter(r => r.n_segments !== 0 && !r.is_clonal).length;
+      document.getElementById('statUnclassifiable').textContent = nUnclass;
       document.getElementById('statTime').textContent = `${elapsed.toFixed(1)} ms`;
 
-      const container = document.getElementById('resultsContainer');
       container.innerHTML = '';
+
+      if (lastResults.length === 0) {
+        container.innerHTML = '<div class="seq-card">No FASTA records found (input must contain sequences; FASTQ/GenBank are not supported)</div>';
+        return;
+      }
 
       for (const r of lastResults) {
         const card = document.createElement('div');
         card.className = 'seq-card';
 
-        const typePill = r.is_clonal
-          ? `<span class="pill pill-clonal">Clonal Basal Subtype (${r.backbone_trunk})</span>`
+        const typePill = r.n_segments === 0
+          ? `<span class="pill pill-scope">Unclassifiable</span>`
+          : r.is_clonal
+          ? `<span class="pill pill-clonal">Clonal Basal Subtype (${escapeHtml(r.backbone_trunk)})</span>`
           : `<span class="pill pill-mosaic">Mosaic Recombinant (${r.n_breakpoints} Breakpoint${r.n_breakpoints === 1 ? '' : 's'})</span>`;
 
-        const matchBadges = r.matches.map(m => `<strong>${m.label}</strong> <span style="color:var(--text-tertiary)">[${m.match_type}]</span>`).join(' &bull; ');
+        const matchBadges = r.matches.map(m => `<strong>${escapeHtml(m.label)}</strong> <span style="color:var(--text-tertiary)">[${escapeHtml(m.match_type)}]</span>`).join(' &bull; ');
 
         let bpTable = '';
         if (r.breakpoints && r.breakpoints.length > 0) {
           const rows = r.breakpoints.map(b => `
             <tr>
               <td>HXB2 ${b.bp_hxb2}</td>
-              <td>${b.left_trunk} &rarr; ${b.right_trunk}</td>
+              <td>${escapeHtml(b.left_trunk)} &rarr; ${escapeHtml(b.right_trunk)}</td>
               <td>${b.ci_hxb2_low}–${b.ci_hxb2_high} (${b.ci_width_nt} nt)</td>
               <td>${b.n11}/${b.n12} vs ${b.n21}/${b.n22}</td>
               <td>${b.p_fisher.toExponential(2)}</td>
@@ -748,7 +806,7 @@
             <table>
               <thead>
                 <tr>
-                  <th>Midpoint</th>
+                  <th>Switch (HXB2)</th>
                   <th>Transition</th>
                   <th>Informative-SNP Plateau CI</th>
                   <th>2&times;2 Allelic Counts</th>
@@ -763,8 +821,8 @@
         const segRows = (r.segments || []).map(s => `
           <tr>
             <td>#${s.seg_idx}</td>
-            <td><strong>${s.trunk}</strong></td>
-            <td>${s.short_gene}</td>
+            <td><strong>${escapeHtml(s.trunk)}</strong></td>
+            <td>${escapeHtml(s.short_gene)}</td>
             <td>HXB2 ${s.hxb2_start}–${s.hxb2_end} (${s.span_nt} nt)</td>
             <td>${s.ci_hxb2_start}–${s.ci_hxb2_end}</td>
             <td>${s.identity_pct.toFixed(1)}%</td>
@@ -773,20 +831,20 @@
 
         card.innerHTML = `
           <div class="seq-header">
-            <div class="seq-title">&gt; ${r.sequence_id}</div>
+            <div class="seq-title">&gt; ${escapeHtml(r.sequence_id)}</div>
             <div style="display:flex;gap:6px;align-items:center;">
-              <span class="pill pill-scope">Scope: ${r.locus_scope} (HXB2 ${r.hxb2_span_start}..${r.hxb2_span_end})</span>
+              <span class="pill pill-scope">Scope: ${escapeHtml(r.locus_scope)} (HXB2 ${r.hxb2_span_start}..${r.hxb2_span_end})</span>
               ${typePill}
             </div>
           </div>
           <div class="meta-grid">
             <div>
               <div class="meta-key">Coordinate-Anchored Formula</div>
-              <div class="meta-val" style="color:var(--braun-orange);font-size:13.5px;">${r.descriptive_name}</div>
+              <div class="meta-val" style="color:var(--braun-orange);font-size:13.5px;">${escapeHtml(r.descriptive_name)}</div>
             </div>
             <div>
               <div class="meta-key">Alignment &amp; Coverage</div>
-              <div class="meta-val">${r.alignment_mode} (${r.mapped_coding_nt} coding nt)</div>
+              <div class="meta-val">${escapeHtml(r.alignment_mode)} (${r.mapped_coding_nt} coding nt)</div>
             </div>
             <div style="grid-column: 1 / -1;">
               <div class="meta-key">Compendium Lineage Match</div>
@@ -794,7 +852,7 @@
             </div>
             <div style="grid-column: 1 / -1;">
               <div class="meta-key">CI-Bracketed HXB2 Barcode</div>
-              <div class="meta-val" style="font-size:11px;">${r.ci_bracketed_barcode}</div>
+              <div class="meta-val" style="font-size:11px;">${escapeHtml(r.ci_bracketed_barcode)}</div>
             </div>
           </div>
           <div class="svg-container">
@@ -830,6 +888,15 @@
       if (tab === 'atlas') renderAtlasTable();
     };
 
+    function formatTmrca(c) {
+      if (c.t_mrca == null) return '—';
+      const t = c.t_mrca.toFixed(1);
+      if (c.t_mrca_ci_low != null && c.t_mrca_ci_high != null) {
+        return `${t} (${c.t_mrca_ci_low.toFixed(1)}–${c.t_mrca_ci_high.toFixed(1)})`;
+      }
+      return `${t} <span style="color:var(--text-tertiary);font-size:10px;">no CI</span>`;
+    }
+
     window.renderAtlasTable = function() {
       const q = (document.getElementById('atlasSearch').value || '').toLowerCase();
       const tbody = document.getElementById('atlasTableBody');
@@ -841,13 +908,13 @@
       );
       tbody.innerHTML = filtered.map(c => `
         <tr>
-          <td><strong>${c.label}</strong><br><span style="font-size:10px;color:var(--text-tertiary)">${c.status}</span></td>
-          <td style="color:var(--braun-orange);font-weight:700;">${c.descriptive_name}</td>
-          <td>${c.backbone}</td>
-          <td>${c.scope}</td>
-          <td>${c.t_mrca ? c.t_mrca.toFixed(1) : '—'}</td>
+          <td><strong>${escapeHtml(c.label)}</strong><br><span style="font-size:10px;color:var(--text-tertiary)">${escapeHtml(c.status)}</span></td>
+          <td style="color:var(--braun-orange);font-weight:700;">${escapeHtml(c.descriptive_name)}</td>
+          <td>${escapeHtml(c.backbone)}</td>
+          <td>${escapeHtml(c.scope)}</td>
+          <td>${formatTmrca(c)}</td>
           <td>${renderBarcodeSVG(c.hxb2_barcode, 300, 26, false)}</td>
-          <td style="font-size:10.5px;max-width:260px;word-break:break-all;">${c.hxb2_barcode}</td>
+          <td style="font-size:10.5px;max-width:260px;word-break:break-all;">${escapeHtml(c.hxb2_barcode)}</td>
         </tr>
       `).join('');
     };
@@ -884,7 +951,11 @@
       const header = "sequence_id,raw_length_nt,mapped_coding_nt,hxb2_span_start,hxb2_span_end,locus_scope,alignment_mode,descriptive_name,structural_formula,backbone_trunk,n_segments,n_breakpoints,hxb2_barcode,ci_bracketed_barcode,compendium_matches\n";
       const rows = lastResults.map(r => {
         const m = (r.matches || []).map(x => `${x.label} (${x.descriptive_name})`).join('; ');
-        return `"${r.sequence_id}",${r.raw_length_nt},${r.mapped_coding_nt},${r.hxb2_span_start},${r.hxb2_span_end},${r.locus_scope},"${r.alignment_mode}","${r.descriptive_name}","${r.structural_formula}",${r.backbone_trunk},${r.n_segments},${r.n_breakpoints},"${r.hxb2_barcode}","${r.ci_bracketed_barcode}","${m}"`;
+        return [
+          csvField(r.sequence_id), r.raw_length_nt, r.mapped_coding_nt, r.hxb2_span_start, r.hxb2_span_end,
+          csvField(r.locus_scope), csvField(r.alignment_mode), csvField(r.descriptive_name), csvField(r.structural_formula),
+          csvField(r.backbone_trunk), r.n_segments, r.n_breakpoints, csvField(r.hxb2_barcode), csvField(r.ci_bracketed_barcode), csvField(m)
+        ].join(',');
       }).join('\n');
       const blob = new Blob([header + rows], { type: 'text/csv' });
       const a = document.createElement('a');
