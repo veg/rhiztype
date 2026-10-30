@@ -95,7 +95,7 @@ RAYON_NUM_THREADS=8 ./target/release/rhiztype input.fasta --out results.csv
 
 ```text
 ================================================================================================
-RHIZTYPE HIV-1 GROUP M SUBTYPING & RECOMBINATION CLASSIFIER (N=5 sequences, 0.224s)
+RHIZTYPE HIV-1 GROUP M SUBTYPING & RECOMBINATION CLASSIFIER (N=5 sequences, 0.028s)
 ================================================================================================
 
 > Ref.B.FR.83.HXB2_LAI_IIIB_BRU.K03455_unaligned
@@ -114,20 +114,20 @@ RHIZTYPE HIV-1 GROUP M SUBTYPING & RECOMBINATION CLASSIFIER (N=5 sequences, 0.22
   Verified Junctions  : HXB2 5151 (A1->?E, CI 5151-5151, p=3.89e-216)
 
 > Ref.02_AG.NG.x.IBNG.L39106_unaligned
-  Alignment / Scope   : Auto-aligned (15-mer anchor + banded NW to HXB2) | full (HXB2 790..9417, 8563 mapped coding nt)
+  Alignment / Scope   : Auto-aligned (15-mer anchor + banded NW to HXB2) | full (HXB2 790..9417, 8559 mapped coding nt)
   Descriptive Formula : A1[G0:gag..RT+RT..vif+tat1..gp120+nef]
-  HXB2 Barcode        : A1:790-2237|G0:2238-3194|A1:3195-4119|G0:4120-5516|A1:5517-5989|G0:5990-6332|A1:6333-8909|G0:8910-9417
-  CI-Bracketed Map    : A1:790-2237[CI:790-2241]|G0:2238-3194[CI:2237-3203]|A1:3195-4119[CI:3194-4128]|G0:4120-5516[CI:4119-5519]|A1:5517-5989[CI:5516-5992]|G0:5990-6332[CI:5989-6341]|A1:6333-8909[CI:6332-8912]|G0:8910-9417[CI:8909-9417]
-  Compendium Match    : CRF02_AG [Homologous Mosaic (83.8% concordance, 4/5 breakpoints)]
-  Verified Junctions  : HXB2 2238 (A1->G0, CI 2237-2241, p=3.42e-12); HXB2 3195 (G0->A1, CI 3194-3203, p=6.04e-12); HXB2 4120 (A1->G0, CI 4119-4128, p=1.49e-11); HXB2 5517 (G0->A1, CI 5516-5519, p=4.46e-7); HXB2 5990 (A1->G0, CI 5989-5992, p=9.39e-6); HXB2 6333 (G0->A1, CI 6332-6341, p=7.22e-8); HXB2 8910 (A1->G0, CI 8909-8912, p=3.21e-11)
+  HXB2 Barcode        : A1:790-2190|G0:2191-3194|A1:3195-4119|G0:4120-5516|A1:5517-5989|G0:5990-6332|A1:6333-8909|G0:8910-9417
+  CI-Bracketed Map    : A1:790-2190[CI:790-2203]|G0:2191-3194[CI:2190-3203]|A1:3195-4119[CI:3194-4128]|G0:4120-5516[CI:4119-5519]|A1:5517-5989[CI:5516-5992]|G0:5990-6332[CI:5989-6341]|A1:6333-8909[CI:6332-8912]|G0:8910-9417[CI:8909-9417]
+  Compendium Match    : CRF02_AG [Homologous Mosaic (83.7% concordance, 4/5 breakpoints)]
+  Verified Junctions  : HXB2 2191 (A1->G0, CI 2190-2203, p=2.20e-11); HXB2 3195 (G0->A1, CI 3194-3203, p=2.05e-11); HXB2 4120 (A1->G0, CI 4119-4128, p=1.49e-11); HXB2 5517 (G0->A1, CI 5516-5519, p=4.46e-7); HXB2 5990 (A1->G0, CI 5989-5992, p=9.39e-6); HXB2 6333 (G0->A1, CI 6332-6341, p=7.22e-8); HXB2 8910 (A1->G0, CI 8909-8912, p=3.21e-11)
 
 > Ref.06_cpx.AU.96.BFP90.AF064699_unaligned
-  Alignment / Scope   : Auto-aligned (15-mer anchor + banded NW to HXB2) | full (HXB2 790..9417, 8576 mapped coding nt)
+  Alignment / Scope   : Auto-aligned (15-mer anchor + banded NW to HXB2) | full (HXB2 790..9417, 8575 mapped coding nt)
   Descriptive Formula : G0[A1:gag.MA..gag.CA+RT..IN | K:RT | J:IN..tat1+gp41..nef]
   HXB2 Barcode        : A1:790-1470|G0:1471-3209|K:3210-4136|A1:4137-4861|J:4862-6020|G0:6021-8261|J:8262-9417
   CI-Bracketed Map    : A1:790-1470[CI:790-1473]|G0:1471-3209[CI:1470-3224]|K:3210-4136[CI:3209-4138]|A1:4137-4861[CI:4136-4925]|J:4862-6020[CI:4861-6021]|G0:6021-8261[CI:6020-8895]|J:8262-9417[CI:8261-9417]
-  Compendium Match    : CRF06_cpx [Homologous Mosaic (90.2% concordance, 5/6 breakpoints)]
-  Verified Junctions  : HXB2 1471 (A1->G0, CI 1470-1473, p=5.46e-15); HXB2 3210 (G0->K, CI 3209-3224, p=1.23e-9); HXB2 4137 (K->A1, CI 4136-4138, p=6.65e-9); HXB2 4862 (A1->J, CI 4861-4925, p=3.92e-9); HXB2 6021 (J->G0, CI 6020-6021, p=9.29e-23); HXB2 8262 (G0->J, CI 8261-8895, p=3.84e-44)
+  Compendium Match    : CRF06_cpx [Homologous Mosaic (90.2% concordance, 4/6 breakpoints)]
+  Verified Junctions  : HXB2 1471 (A1->G0, CI 1470-1473, p=5.46e-15); HXB2 3210 (G0->K, CI 3209-3224, p=1.23e-9); HXB2 4137 (K->A1, CI 4136-4138, p=6.65e-9); HXB2 4862 (A1->J, CI 4861-4925, p=3.29e-9); HXB2 6021 (J->G0, CI 6020-6021, p=5.16e-23); HXB2 8262 (G0->J, CI 8261-8895, p=3.84e-44)
 
 > Ref.07_BC.CN.98.98CN009.AF286230_unaligned
   Alignment / Scope   : Auto-aligned (15-mer anchor + banded NW to HXB2) | full (HXB2 790..9417, 8579 mapped coding nt)
