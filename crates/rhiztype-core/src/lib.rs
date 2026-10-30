@@ -1069,8 +1069,8 @@ impl RhizTypeEngine {
                     best_merge_idx = Some(i);
                     break;
                 }
-                let span1 = col_to_hxb2[e1 - 1].saturating_sub(col_to_hxb2[s1]);
-                let span2 = col_to_hxb2[e2 - 1].saturating_sub(col_to_hxb2[s2]);
+                let span1 = (col_to_hxb2[e1 - 1] + 1).saturating_sub(col_to_hxb2[s1]);
+                let span2 = (col_to_hxb2[e2 - 1] + 1).saturating_sub(col_to_hxb2[s2]);
                 let (pval, n11, _n12, _n21, n22, _, _) = self.test_boundary_significance(
                     q_sub,
                     offset_in_coding,
@@ -1104,8 +1104,8 @@ impl RhizTypeEngine {
             if let Some(i) = best_merge_idx {
                 let (s1, e1, t1) = segs[i];
                 let (s2, e2, t2) = segs[i + 1];
-                let span1 = col_to_hxb2[e1 - 1].saturating_sub(col_to_hxb2[s1]);
-                let span2 = col_to_hxb2[e2 - 1].saturating_sub(col_to_hxb2[s2]);
+                let span1 = (col_to_hxb2[e1 - 1] + 1).saturating_sub(col_to_hxb2[s1]);
+                let span2 = (col_to_hxb2[e2 - 1] + 1).saturating_sub(col_to_hxb2[s2]);
 
                 let valid1 = self.trunk_valid_fraction(t1, offset_in_coding + s1, offset_in_coding + e2);
                 let valid2 = self.trunk_valid_fraction(t2, offset_in_coding + s1, offset_in_coding + e2);
@@ -1126,21 +1126,65 @@ impl RhizTypeEngine {
         }
 
         // Merge identical adjacent states
-        let mut merged: Vec<(usize, usize, usize)> = Vec::new();
+        let mut state_merged: Vec<(usize, usize, usize)> = Vec::new();
         for seg in segs {
-            if let Some(last) = merged.last_mut() {
+            if let Some(last) = state_merged.last_mut() {
                 if last.2 == seg.2 {
                     last.1 = seg.1;
                     continue;
                 }
             }
-            merged.push(seg);
+            state_merged.push(seg);
+        }
+
+        // Label each piece, then merge adjacent pieces whose final label is equal
+        // (e.g. trunk ?E next to a ghost segment relabelled ?E).
+        let label_of = |s: usize, e: usize, t: usize| -> String {
+            if t < k_trunks {
+                return self.trunk_names[t].clone();
+            }
+            let h0 = col_to_hxb2[s];
+            let mut valid_cnt = 0usize;
+            let mut match_cnt = 0usize;
+            for u in s..e {
+                let qb = q_sub[u];
+                let cb = self.cm240_coding[offset_in_coding + u];
+                if qb >= 0 && cb >= 0 {
+                    valid_cnt += 1;
+                    if qb == cb {
+                        match_cnt += 1;
+                    }
+                }
+            }
+            if valid_cnt > 50 && h0 >= 5000 && (match_cnt as f64 / valid_cnt as f64) >= 0.85 {
+                "?E".to_string()
+            } else {
+                "Unattributed".to_string()
+            }
+        };
+        // (start, end, state, label, mixed states, span of the piece keeping the state)
+        let mut merged: Vec<(usize, usize, usize, String, bool, usize)> = Vec::new();
+        for &(s, e, t) in &state_merged {
+            let label = label_of(s, e, t);
+            let span = (col_to_hxb2[e - 1] + 1).saturating_sub(col_to_hxb2[s]);
+            if let Some(last) = merged.last_mut() {
+                if last.3 == label {
+                    last.4 |= last.2 != t;
+                    if span > last.5 {
+                        last.2 = t;
+                        last.5 = span;
+                    }
+                    last.1 = e;
+                    continue;
+                }
+            }
+            merged.push((s, e, t, label, false, span));
         }
 
         let mut breakpoints = Vec::new();
         for i in 0..(merged.len().saturating_sub(1)) {
-            let (s1, e1, t1) = merged[i];
-            let (_s2, e2, t2) = merged[i + 1];
+            let (s1, e1, t1, _, _, _) = merged[i];
+            let (_s2, e2, t2, _, _, _) = merged[i + 1];
             let (pval, n11, n12, n21, n22, ci_low_col, ci_high_col) = self
                 .test_boundary_significance(
                     q_sub,
@@ -1159,7 +1203,7 @@ impl RhizTypeEngine {
                 bp_hxb2: col_to_hxb2[e1],
                 ci_hxb2_low: ci_low_h,
                 ci_hxb2_high: ci_high_h,
-                ci_width_nt: ci_high_h.saturating_sub(ci_low_h),
+                ci_width_nt: ci_high_h.saturating_sub(ci_low_h) + 1,
                 left_trunk: String::new(),
                 right_trunk: String::new(),
                 p_fisher: pval,
@@ -1171,7 +1215,7 @@ impl RhizTypeEngine {
         }
 
         let mut out_segs = Vec::new();
-        for (i, &(s, e, t)) in merged.iter().enumerate() {
+        for (i, (s, e, t, t_label, mixed, _)) in merged.iter().cloned().enumerate() {
             let h0 = col_to_hxb2[s];
             let h1 = col_to_hxb2[e - 1];
             let ci_start = if i > 0 {
@@ -1185,32 +1229,10 @@ impl RhizTypeEngine {
                 h1
             };
 
-            let t_label = if t < k_trunks {
-                self.trunk_names[t].clone()
-            } else {
-                let mut valid_cnt = 0usize;
-                let mut match_cnt = 0usize;
-                for u in s..e {
-                    let qb = q_sub[u];
-                    let cb = self.cm240_coding[offset_in_coding + u];
-                    if qb >= 0 && cb >= 0 {
-                        valid_cnt += 1;
-                        if qb == cb {
-                            match_cnt += 1;
-                        }
-                    }
-                }
-                if valid_cnt > 50 && h0 >= 5000 && (match_cnt as f64 / valid_cnt as f64) >= 0.85 {
-                    "?E".to_string()
-                } else {
-                    "Unattributed".to_string()
-                }
-            };
-
             // Compute identity % against assigned trunk
             let mut id_valid = 0usize;
             let mut id_match = 0usize;
-            let t_check = if t < k_trunks {
+            let t_check = if t < k_trunks && !mixed {
                 Some(&self.trunk_mat[t])
             } else if t_label == "?E" {
                 Some(&self.cm240_coding)
