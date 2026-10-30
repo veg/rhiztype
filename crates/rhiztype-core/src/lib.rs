@@ -62,6 +62,27 @@ pub struct ScreeningConfig {
     pub mask_hypervariable_loops: bool,
 }
 
+impl ScreeningConfig {
+    /// Reject parameter values that would make the screen meaningless or non-deterministic.
+    pub fn validate(&self) -> Result<(), String> {
+        if let Some(g) = self.gamma {
+            if !g.is_finite() || g <= 0.0 {
+                return Err(format!("gamma must be a finite number > 0 (got {})", g));
+            }
+        }
+        if self.min_span_nt == Some(0) {
+            return Err("min-span must be >= 1".to_string());
+        }
+        if !self.p_fisher_thresh.is_finite() || self.p_fisher_thresh <= 0.0 || self.p_fisher_thresh > 1.0 {
+            return Err(format!(
+                "p-thresh must be in (0, 1] (got {})",
+                self.p_fisher_thresh
+            ));
+        }
+        Ok(())
+    }
+}
+
 impl Default for ScreeningConfig {
     fn default() -> Self {
         Self {
@@ -276,7 +297,7 @@ impl RhizTypeEngine {
         let mut cur_hdr: Option<String> = None;
         let mut cur_seq = String::new();
 
-        for line in fasta_text.lines() {
+        for line in fasta_text.trim_start_matches('\u{FEFF}').split(['\n', '\r']) {
             let line = line.trim();
             if line.is_empty() {
                 continue;
@@ -288,6 +309,9 @@ impl RhizTypeEngine {
                 cur_hdr = Some(rest.trim().to_string());
                 cur_seq.clear();
             } else {
+                if cur_hdr.is_none() {
+                    cur_hdr = Some("unnamed_1".to_string());
+                }
                 for ch in line.chars() {
                     if !ch.is_whitespace() {
                         cur_seq.push(ch.to_ascii_uppercase());
