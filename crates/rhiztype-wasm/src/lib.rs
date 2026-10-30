@@ -17,6 +17,11 @@ impl WasmRhizType {
 
     /// Screen a FASTA string (aligned or unaligned, full-length or partial pol/env)
     /// and return a JSON array of `SequenceResult` objects.
+    ///
+    /// Parameters follow the UI contract where 0 means Auto: a non-finite or <= 0 `gamma`
+    /// and a 0 `min_span_nt` become `None` (engine defaults). A non-finite or out-of-range
+    /// `p_fisher_thresh` falls back to 1e-4 and 0 `min_informative_snps` to 5, so the
+    /// WASM never runs with values the CLI would reject.
     pub fn screen_fasta(
         &self,
         fasta_text: &str,
@@ -28,14 +33,22 @@ impl WasmRhizType {
     ) -> String {
         let records = RhizTypeEngine::parse_fasta(fasta_text);
         let cfg = ScreeningConfig {
-            gamma: if gamma > 0.0 { Some(gamma) } else { None },
+            gamma: if gamma.is_finite() && gamma > 0.0 { Some(gamma) } else { None },
             min_span_nt: if min_span_nt > 0 {
                 Some(min_span_nt)
             } else {
                 None
             },
-            min_informative_snps,
-            p_fisher_thresh,
+            min_informative_snps: if min_informative_snps > 0 {
+                min_informative_snps
+            } else {
+                5
+            },
+            p_fisher_thresh: if p_fisher_thresh.is_finite() && p_fisher_thresh > 0.0 && p_fisher_thresh <= 1.0 {
+                p_fisher_thresh
+            } else {
+                1e-4
+            },
             mask_hypervariable_loops,
         };
 
