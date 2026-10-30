@@ -11,7 +11,7 @@
 
 1. **Accepts Unaligned or Pre-Aligned FASTA Sequences Automatically**
    - **Pre-aligned inputs** mapped to HXB2 (`9,719 nt`), HXB2 coding span (`8,628 nt`, `HXB2 790–9417`), or the LANL 2023 HIV-1 Reference Compendium MSA (`11,531 columns`) are projected directly in $O(L)$ time.
-   - **Unaligned sequences** (complete genomes or partial amplicons; at least $100\text{ nt}$ of usable coding positions are required, counted as unambiguous, mapped, post-loop-mask positions rather than raw input length) are automatically aligned to HXB2 coordinates using a two-stage **15-mer / 11-mer anchor seed hash + collinear sparse dynamic programming chain + banded Needleman-Wunsch** aligner against the Group M basal trunk ensemble.
+   - **Unaligned sequences** (complete genomes or partial amplicons; at least $100\text{ nt}$ of usable coding positions are required, counted as unambiguous mapped coding positions before hypervariable-loop masking, not raw input length) are automatically aligned to HXB2 coordinates using a two-stage **15-mer / 11-mer anchor seed hash + collinear sparse dynamic programming chain + banded Needleman-Wunsch** aligner against the Group M basal trunk ensemble.
 
 2. **Scrubbed Basal Reference Panel (`13 Trunks + ?E`)**
    - Screens queries directly against the 13 scrubbed Group M basal reference trunks (`A1, A2, A6, B, C, D, F1, F2, G0, H, J, K, L`)—with the 12 historical reference-panel contaminations masked out—plus an **unpolarized ancestral root channel** and the unsampled `CRF01_AE` `vif..nef` (`?E`) trunk (`HXB2 5097–9417`).
