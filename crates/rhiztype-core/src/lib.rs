@@ -822,7 +822,18 @@ impl RhizTypeEngine {
     ) -> SequenceResult {
         let (mut q_coding, align_mode, raw_len) = self.project_to_hxb2_coding(raw_seq);
 
-        // Determine active coding span [active_start..active_end] where valid nucleotides exist
+        let mapped_coding_nt = q_coding.iter().filter(|&&b| b >= 0).count();
+
+        // Apply artifact shield for hypervariable loops if enabled (before the span is determined)
+        if cfg.mask_hypervariable_loops {
+            for i in 0..CODING_LEN {
+                if self.loop_mask_coding[i] {
+                    q_coding[i] = -1;
+                }
+            }
+        }
+
+        // Determine active coding span [active_start..active_end] where usable nucleotides exist
         let valid_positions: Vec<usize> = q_coding
             .iter()
             .enumerate()
@@ -833,12 +844,16 @@ impl RhizTypeEngine {
             return SequenceResult {
                 sequence_id: header.to_string(),
                 raw_length_nt: raw_len,
-                mapped_coding_nt: valid_positions.len(),
+                mapped_coding_nt,
                 hxb2_span_start: 0,
                 hxb2_span_end: 0,
                 locus_scope: "insufficient_coverage".to_string(),
                 alignment_mode: align_mode,
-                structural_formula: "Unclassifiable (<100 mapped coding nt)".to_string(),
+                structural_formula: if cfg.mask_hypervariable_loops {
+                    "Unclassifiable (<100 usable coding nt after loop mask)".to_string()
+                } else {
+                    "Unclassifiable (<100 mapped coding nt)".to_string()
+                },
                 descriptive_name: "Unclassifiable".to_string(),
                 backbone_trunk: "None".to_string(),
                 constituent_trunks: vec![],
@@ -857,28 +872,18 @@ impl RhizTypeEngine {
         let last_idx = *valid_positions.last().unwrap();
         let h_start = CODING_START_HXB2 + first_idx;
         let h_end = CODING_START_HXB2 + last_idx;
-        let mapped_coding_nt = valid_positions.len();
 
         // Determine locus scope (full genome vs partial pol vs partial env vs custom partial)
         let span_width = h_end - h_start + 1;
         let locus_scope = if span_width >= 6800 && mapped_coding_nt >= 6000 {
             "full".to_string()
-        } else if h_start >= 1800 && h_end <= 5400 {
+        } else if h_start >= 1800 && h_end > 2292 && h_end <= 5400 {
             "pol".to_string()
         } else if h_start >= 5900 && h_end <= 9100 {
             "env".to_string()
         } else {
             "partial".to_string()
         };
-
-        // Apply artifact shield for hypervariable loops if enabled
-        if cfg.mask_hypervariable_loops {
-            for i in 0..CODING_LEN {
-                if self.loop_mask_coding[i] {
-                    q_coding[i] = -1;
-                }
-            }
-        }
 
         let gamma = cfg.gamma.unwrap_or(7.0);
         let min_span_nt = cfg.min_span_nt.unwrap_or(if locus_scope == "full" {
