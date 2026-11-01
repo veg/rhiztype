@@ -12,6 +12,11 @@ export class WasmRhizType {
     /**
      * Screen a FASTA string (aligned or unaligned, full-length or partial pol/env)
      * and return a JSON array of `SequenceResult` objects.
+     *
+     * Parameters follow the UI contract where 0 means Auto: a non-finite or <= 0 `gamma`
+     * and a 0 `min_span_nt` become `None` (engine defaults). A non-finite or out-of-range
+     * `p_fisher_thresh` falls back to 1e-4 and 0 `min_informative_snps` to 5, so the
+     * WASM never runs with values the CLI would reject.
      */
     screen_fasta(fasta_text: string, gamma: number, min_span_nt: number, min_informative_snps: number, p_fisher_thresh: number, mask_hypervariable_loops: boolean): string;
 }
